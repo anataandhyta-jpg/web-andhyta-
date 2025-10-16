@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tetris Sederhana</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #222;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      margin: 10px 0;
+    }
+
+    #game {
+      display: grid;
+      grid-template-rows: repeat(20, 5vw);
+      grid-template-columns: repeat(10, 5vw);
+      gap: 1px;
+      background: #111;
+    }
+
+    .cell {
+      width: 5vw;
+      height: 5vw;
+      background-color: #333;
+    }
+
+    .filled {
+      background-color: #0ff;
+    }
+
+    #controls {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    button {
+      width: 60px;
+      height: 60px;
+      font-size: 18px;
+      border: none;
+      border-radius: 10px;
+      background-color: #444;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:active {
+      background-color: #666;
+    }
+
+    #score {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Tetris</h1>
+  <div id="game"></div>
+  <div id="controls">
+    <button onclick="moveLeft()">◀</button>
+    <button onclick="rotate()">🔄</button>
+    <button onclick="moveRight()">▶</button>
+    <button onclick="moveDown()">▼</button>
+  </div>
+  <div id="score">Skor: 0</div>
+
+  <script>
+    const rows = 20;
+    const cols = 10;
+    const game = document.getElementById("game");
+    const scoreDisplay = document.getElementById("score");
+    let score = 0;
+
+    // Buat grid
+    const grid = Array.from({ length: rows }, () => Array(cols).fill(0));
+
+    // Buat tampilan grid di HTML
+    function drawGrid() {
+      game.innerHTML = "";
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const cell = document.createElement("div");
+          cell.classList.add("cell");
+          if (grid[y][x]) cell.classList.add("filled");
+          game.appendChild(cell);
+        }
+      }
+    }
+
+    const tetrominoes = [
+      // I
+      [[1,1,1,1]],
+      // O
+      [[1,1],[1,1]],
+      // T
+      [[0,1,0],[1,1,1]],
+      // L
+      [[1,0,0],[1,1,1]],
+      // J
+      [[0,0,1],[1,1,1]],
+      // S
+      [[0,1,1],[1,1,0]],
+      // Z
+      [[1,1,0],[0,1,1]],
+    ];
+
+    let current;
+    let currentX = 0;
+    let currentY = 0;
+
+    function newPiece() {
+      const shape = tetrominoes[Math.floor(Math.random() * tetrominoes.length)];
+      current = shape;
+      currentY = 0;
+      currentX = Math.floor((cols - shape[0].length) / 2);
+    }
+
+    function drawPiece() {
+      const tempGrid = grid.map(row => row.slice());
+      for (let y = 0; y < current.length; y++) {
+        for (let x = 0; x < current[y].length; x++) {
+          if (current[y][x]) {
+            const newY = currentY + y;
+            const newX = currentX + x;
+            if (newY >= 0 && newY < rows && newX >= 0 && newX < cols) {
+              tempGrid[newY][newX] = 1;
+            }
+          }
+        }
+      }
+      drawGrid();
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          if (tempGrid[y][x]) {
+            game.children[y * cols + x].classList.add("filled");
+          }
+        }
+      }
+    }
+
+    function isValidMove(offsetX, offsetY, rotated = null) {
+      const shape = rotated || current;
+      for (let y = 0; y < shape.length; y++) {
+        for (let x = 0; x < shape[y].length; x++) {
+          if (shape[y][x]) {
+            const newX = currentX + x + offsetX;
+            const newY = currentY + y + offsetY;
+            if (newX < 0 || newX >= cols || newY >= rows || (newY >= 0 && grid[newY][newX])) {
+              return false;
+            }
+          }
+        }
+      }
+      return true;
+    }
+
+    function moveLeft() {
+      if (isValidMove(-1, 0)) currentX--;
+      drawPiece();
+    }
+
+    function moveRight() {
+      if (isValidMove(1, 0)) currentX++;
+      drawPiece();
+    }
+
+    function moveDown() {
+      if (isValidMove(0, 1)) {
+        currentY++;
+      } else {
+        fixPiece();
+        clearLines();
+        newPiece();
+        if (!isValidMove(0, 0)) {
+          alert("Game Over! Skor Anda: " + score);
+          location.reload();
+        }
+      }
+      drawPiece();
+    }
+
+    function rotate() {
+      const rotated = current[0].map((_, i) => current.map(row => row[i]).reverse());
+      if (isValidMove(0, 0, rotated)) {
+        current = rotated;
+      }
+      drawPiece();
+    }
+
+    function fixPiece() {
+      for (let y = 0; y < current.length; y++) {
+        for (let x = 0; x < current[y].length; x++) {
+          if (current[y][x]) {
+            grid[currentY + y][currentX + x] = 1;
+          }
+        }
+      }
+    }
+
+    function clearLines() {
+      let linesCleared = 0;
+      for (let y = rows - 1; y >= 0; y--) {
+        if (grid[y].every(cell => cell)) {
+          grid.splice(y, 1);
+          grid.unshift(Array(cols).fill(0));
+          linesCleared++;
+          y++;
+        }
+      }
+      if (linesCleared > 0) {
+        score += linesCleared * 10;
+        scoreDisplay.textContent = "Skor: " + score;
+      }
+    }
+
+    // Game Loop
+    function gameLoop() {
+      moveDown();
+    }
+
+    newPiece();
+    drawPiece();
+    setInterval(gameLoop, 800);
+  </script>
+</body>
+</html>
